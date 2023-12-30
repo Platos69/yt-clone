@@ -4,12 +4,19 @@ const fullScreenBtn = document.querySelector(".full-screen-btn");
 const muteBtn = document.querySelector(".mute-btn");
 const currentTimeElem = document.querySelector(".current-time");
 const totalTimeElem = document.querySelector(".total-time")
+const videoTitleElem = document.querySelector('.video-title');
 const controlsContainer = document.querySelector('.video-controls-container');
-const thumbnailImg = document.querySelector(".thumbnail-img");
+const searchInput = document.querySelector('#search-input');
+const searchButton = document.querySelector('#search-button');
 const volumeSlider = document.querySelector(".volume-slider");
 const videoContainer = document.querySelector(".video-container");
 const timelineContainer = document.querySelector(".timeline-container");
 const video = document.querySelector("video");
+const firstPageButton = document.getElementById('first-page-button');
+const lastPageButton = document.getElementById('last-page-button');
+const nextButtonPages = document.getElementById('next-button-pages');
+const prevButtonPages = document.getElementById('prev-button-pages');
+const pageInfoSpan = document.getElementById('page-info');
 
 // Obtendo elementos do DOM relacionados à navegação
 const prevButton = document.getElementById('prev-button');
@@ -18,12 +25,113 @@ const randomButton = document.getElementById('random-button');
 const loopButton = document.getElementById('loop-button');
 
 // Mutáveis e Variáveis
-let maxVideoIndex = 76;
+let maxVideoIndex = 92;
+let hideControlsTimeout;
+let isMouseOver = false;
+let currentPage = 1;
 let currentVideoIndex = 1;
 let randomHistory = [];
 let isLoopActive = false;
 let isRandomActive = false; // Desative a reprodução aleatória por padrão
 let videoQueue = [...Array(maxVideoIndex).keys()].map(i => i + 1);
+
+
+// Event Listener para o botão de pesquisa
+searchButton.addEventListener('click', () => {
+    const searchTerm = searchInput.value.toLowerCase(); // Converte o termo de pesquisa para minúsculas
+    const matchingVideoIndex = findVideoIndexByName(searchTerm);
+  
+    if (matchingVideoIndex !== null) {
+      loadVideo(matchingVideoIndex);
+    } else {
+      alert('Vídeo não encontrado. Tente outro termo de pesquisa.');
+    }
+  });
+  
+  // Função para encontrar o índice do vídeo pelo nome
+  function findVideoIndexByName(name) {
+    for (let i = 1; i <= maxVideoIndex; i++) {
+      const videoName = `video${i}`;
+      if (videoName.includes(name)) {
+        return i;
+      }
+    }
+    return null; // Retorna null se nenhum vídeo for encontrado
+  }
+
+// Função para gerar cards de vídeo para uma página específica
+function gerarCardsDeVideo(numeroPagina) {
+    const containerListaVideos = document.getElementById('video-list');
+    containerListaVideos.innerHTML = ''; // Limpar o contêiner antes de gerar novos cards
+
+    const indiceInicio = (numeroPagina - 1) * 8 + 1;
+    const indiceFim = Math.min(indiceInicio + 7, maxVideoIndex);
+
+    for (let i = indiceInicio; i <= indiceFim; i++) {
+        const cardVideo = document.createElement('div');
+        cardVideo.classList.add('video-card');
+
+        const tituloVideo = document.createElement('div');
+        tituloVideo.classList.add('video-title');
+        tituloVideo.textContent = `Vídeo ${i}`;
+
+        const quadroVideo = document.createElement('img');
+        quadroVideo.classList.add('video-frame');
+
+        // Carregar a origem da imagem com base na convenção de nomenclatura (image{i}.png)
+        const caminhoImagem = `images/image${i}.png`;
+        quadroVideo.src = caminhoImagem;
+
+        cardVideo.appendChild(tituloVideo);
+        cardVideo.appendChild(quadroVideo);
+
+        cardVideo.addEventListener('click', () => {
+            currentVideoIndex = i;
+            loadVideo(currentVideoIndex);
+        });
+
+        containerListaVideos.appendChild(cardVideo);
+    }
+}
+
+// Chamar a função para gerar cards de vídeo para a página inicial
+gerarCardsDeVideo(currentPage);
+atualizarInformacaoPagina();
+
+// Event Listener para navegação de próxima, anterior, primeira página e última página
+nextButtonPages.addEventListener('click', () => {
+    if (currentPage < Math.ceil(maxVideoIndex / 8)) {
+        currentPage++;
+        gerarCardsDeVideo(currentPage);
+        atualizarInformacaoPagina();
+    }
+});
+
+prevButtonPages.addEventListener('click', () => {
+    if (currentPage > 1) {
+        currentPage--;
+        gerarCardsDeVideo(currentPage);
+        atualizarInformacaoPagina();
+    }
+});
+
+// Função para atualizar exibição de informações da página
+function atualizarInformacaoPagina() {
+    pageInfoSpan.textContent = `${currentPage} de ${Math.ceil(maxVideoIndex / 8)}`;
+}
+
+firstPageButton.addEventListener('click', () => {
+    currentPage = 1;
+    gerarCardsDeVideo(currentPage);
+    atualizarInformacaoPagina();
+});
+
+// Event Listener para ir para a última página
+lastPageButton.addEventListener('click', () => {
+    currentPage = Math.ceil(maxVideoIndex / 8);
+    gerarCardsDeVideo(currentPage);
+    atualizarInformacaoPagina();
+});
 
 // Função para gerar um índice aleatório entre min e max
 function getRandomIndex(min, max) {
@@ -35,8 +143,10 @@ function loadVideo(index) {
     video.src = `videos/video${index}.mp4`;
     video.load();
     video.play();
-}
 
+    // Atualizar dinamicamente o título do vídeo
+    videoTitleElem.textContent = `Video ${index}`;
+}
 // Event Listener para o botão Anterior
 prevButton.addEventListener('click', () => {
     if (isRandomActive) {
@@ -161,70 +271,70 @@ document.addEventListener("keydown", e => {
 timelineContainer.addEventListener("mousemove", handleTimelineUpdate)
 timelineContainer.addEventListener("mousedown", toggleScrubbing)
 document.addEventListener("mouseup", e => {
-  if (isScrubbing) toggleScrubbing(e)
+    if (isScrubbing) toggleScrubbing(e)
 })
 document.addEventListener("mousemove", e => {
-  if (isScrubbing) handleTimelineUpdate(e)
+    if (isScrubbing) handleTimelineUpdate(e)
 })
 
 let isScrubbing = false
 let wasPaused
 function toggleScrubbing(e) {
-  const rect = timelineContainer.getBoundingClientRect()
-  const percent = Math.min(Math.max(0, e.x - rect.x), rect.width) / rect.width
-  isScrubbing = (e.buttons & 1) === 1
-  videoContainer.classList.toggle("scrubbing", isScrubbing)
-  if (isScrubbing) {
-    wasPaused = video.paused
-    video.pause()
-  } else {
-    video.currentTime = percent * video.duration
-    if (!wasPaused) video.play()
-  }
+    const rect = timelineContainer.getBoundingClientRect()
+    const percent = Math.min(Math.max(0, e.x - rect.x), rect.width) / rect.width
+    isScrubbing = (e.buttons & 1) === 1
+    videoContainer.classList.toggle("scrubbing", isScrubbing)
+    if (isScrubbing) {
+        wasPaused = video.paused
+        video.pause()
+    } else {
+        video.currentTime = percent * video.duration
+        if (!wasPaused) video.play()
+    }
 
-  handleTimelineUpdate(e)
+    handleTimelineUpdate(e)
 }
 
 function handleTimelineUpdate(e) {
-  const rect = timelineContainer.getBoundingClientRect()
-  const percent = Math.min(Math.max(0, e.x - rect.x), rect.width) / rect.width
+    const rect = timelineContainer.getBoundingClientRect()
+    const percent = Math.min(Math.max(0, e.x - rect.x), rect.width) / rect.width
 
-  if (isScrubbing) {
-    e.preventDefault()
-    timelineContainer.style.setProperty("--progress-position", percent)
-  }
+    if (isScrubbing) {
+        e.preventDefault()
+        timelineContainer.style.setProperty("--progress-position", percent)
+    }
 }
 
 // Duration
 video.addEventListener("loadeddata", () => {
     totalTimeElem.textContent = formatDuration(video.duration)
-  })
-  
-  video.addEventListener("timeupdate", () => {
+})
+
+video.addEventListener("timeupdate", () => {
     currentTimeElem.textContent = formatDuration(video.currentTime)
     const percent = video.currentTime / video.duration
     timelineContainer.style.setProperty("--progress-position", percent)
-  })
-  
-  const leadingZeroFormatter = new Intl.NumberFormat(undefined, {
+})
+
+const leadingZeroFormatter = new Intl.NumberFormat(undefined, {
     minimumIntegerDigits: 2,
-  })
-  function formatDuration(time) {
+})
+function formatDuration(time) {
     const seconds = Math.floor(time % 60)
     const minutes = Math.floor(time / 60) % 60
     const hours = Math.floor(time / 3600)
     if (hours === 0) {
-      return `${minutes}:${leadingZeroFormatter.format(seconds)}`
+        return `${minutes}:${leadingZeroFormatter.format(seconds)}`
     } else {
-      return `${hours}:${leadingZeroFormatter.format(
-        minutes
-      )}:${leadingZeroFormatter.format(seconds)}`
+        return `${hours}:${leadingZeroFormatter.format(
+            minutes
+        )}:${leadingZeroFormatter.format(seconds)}`
     }
-  }
-  
-  function skip(duration) {
+}
+
+function skip(duration) {
     video.currentTime += duration
-  }
+}
 
 // Volume
 muteBtn.addEventListener("click", toggleMute)
@@ -257,17 +367,26 @@ fullScreenBtn.addEventListener("click", toggleFullScreenMode)
 
 function toggleFullScreenMode() {
     if (document.fullscreenElement == null) {
-        videoContainer.requestFullscreen()
-        controlsContainer.classList.add('fullscreen')
+        videoContainer.requestFullscreen();
+        controlsContainer.classList.add('fullscreen');
+        hideControlsTimeout = setTimeout(() => {
+            if (!video.paused) {
+                controlsContainer.style.opacity = 0;
+                document.body.style.cursor = 'none';
+            }
+        }, 2000);
     } else {
-        document.exitFullscreen()
-        controlsContainer.classList.remove('fullscreen')
+        document.exitFullscreen();
+        controlsContainer.classList.remove('fullscreen');
+        controlsContainer.style.opacity = 1;
+        document.body.style.cursor = 'auto';
+        clearTimeout(hideControlsTimeout);
     }
 }
 
-document.addEventListener("fullscreenchange", () => {
-    videoContainer.classList.toggle("full-screen", document.fullscreenElement)
-})
+document.addEventListener('fullscreenchange', () => {
+    videoContainer.classList.toggle('full-screen', document.fullscreenElement);
+});
 
 // Play/Pause
 playPauseBtn.addEventListener("click", togglePlay)
@@ -279,8 +398,31 @@ function togglePlay() {
 
 video.addEventListener("play", () => {
     videoContainer.classList.remove("paused")
+    hideControlsTimeout = setTimeout(() => {
+        if (!isMouseOver) {
+            controlsContainer.style.opacity = 0;
+            document.body.style.cursor = 'none';
+        }
+    }, 2000);
 })
 
 video.addEventListener("pause", () => {
     videoContainer.classList.add("paused")
+    clearTimeout(hideControlsTimeout);
+    controlsContainer.style.opacity = 1;
+    document.body.style.cursor = 'auto';
 })
+
+video.addEventListener('mousemove', () => {
+    if (video.play) {
+        controlsContainer.style.opacity = 1;
+        document.body.style.cursor = 'auto';
+        clearTimeout(hideControlsTimeout);
+        hideControlsTimeout = setTimeout(() => {
+            if (!video.paused) {
+                controlsContainer.style.opacity = 0;
+                document.body.style.cursor = 'none';
+            }
+        }, 2000);
+    }
+});
